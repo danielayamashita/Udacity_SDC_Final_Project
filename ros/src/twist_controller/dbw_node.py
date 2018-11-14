@@ -33,7 +33,7 @@ that we have created in the `__init__` function.
 
 class DBWNode(object):
     def __init__(self):
-		""" Drive by wire node"""
+        """ Drive by wire node"""
         rospy.init_node('dbw_node')
 
         vehicle_mass = rospy.get_param('~vehicle_mass', 1736.35)
@@ -47,7 +47,7 @@ class DBWNode(object):
         max_lat_accel = rospy.get_param('~max_lat_accel', 3.)
         max_steer_angle = rospy.get_param('~max_steer_angle', 8.)
 
-		# Publishers
+        # Publishers
         self.steer_pub = rospy.Publisher('/vehicle/steering_cmd',
                                          SteeringCmd, queue_size=1)
         self.throttle_pub = rospy.Publisher('/vehicle/throttle_cmd',
@@ -55,22 +55,19 @@ class DBWNode(object):
         self.brake_pub = rospy.Publisher('/vehicle/brake_cmd',
                                          BrakeCmd, queue_size=1)
 
-		#Subscribers to all the topics you need to
-		### CHANGE THE TOPIC AND TYPE
-		rospy.Subscriber('/vehicle/dbw_enabled', <msgtype>, self.dbw_enabled_cb)
-        rospy.Subscriber('/twist_cmd', <msgtype>, self.twist_cb)
-		rospy.Subscriber('/current_velocity', <msgtype>, self.velocity_cb)
-		
-		
+        #Subscribers to all the topics you need to
+        rospy.Subscriber('/vehicle/dbw_enabled', Bool, self.dbw_enabled_cb)
+        rospy.Subscriber('/twist_cmd', TwistStamped, self.twist_cb)
+        rospy.Subscriber('/current_velocity', TwistStamped, self.velocity_cb)
+        
+        
         # `Controller` object which performs all the calculations
         self.controller = Controller(vehicle_mass, fuel_capacity, 
-									brake_deadband, decel_limit, 
-									accel_limit, wheel_radius
-									wheel_base, steer_ratio, 
-									max_lat_accel, max_steer_angle)
+                                    brake_deadband, decel_limit, 
+                                    accel_limit, wheel_radius,
+                                    wheel_base, steer_ratio, 
+                                    max_lat_accel, max_steer_angle)
 
-
-		
         # Class attributes
         self.current_vel = None
         #self.curr_ang_vel = None
@@ -80,11 +77,11 @@ class DBWNode(object):
         self.throttle = 0
         self.steering = 0
         self.brake = 0
-		
+
         self.loop()
 
     def loop(self):
-		""" You need to publish with 50Hz or otherwise the car computer thinks, there is a problem and it shouts down"""
+        """ You need to publish with 50Hz or otherwise the car computer thinks, there is a problem and it shouts down"""
         rate = rospy.Rate(50) # 50Hz
         while not rospy.is_shutdown():
             # TODO: Get predicted throttle, brake, and steering using `twist_controller`
