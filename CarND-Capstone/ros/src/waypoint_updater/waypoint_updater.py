@@ -1,8 +1,13 @@
 #!/usr/bin/env python
 
+import numpy as np
 import rospy
 from geometry_msgs.msg import PoseStamped
 from styx_msgs.msg import Lane, Waypoint
+from scipy.spatial import KDTree
+
+# for debugging
+import inspect
 
 import math
 
@@ -37,23 +42,75 @@ class WaypointUpdater(object):
         self.final_waypoints_pub = rospy.Publisher('final_waypoints', Lane, queue_size=1)
 
         # TODO: Add other member variables you need below
+        self.base_waypoints = None
+        self.waypoints_2d   = None
+        self.waypoints_tree = None
+        self.pose = None
+        
+        self.loop()
+        #rospy.spin()
 
-        rospy.spin()
+    def loop(self):
+        rate = rospy.Rate(50)
+        while not rospy.is_shutdown():
+            if self.pose and self.base_waypoints:
+                closest_waypoint_idx = self.get_closest_waypoint_idx()
+                self.publish_waypoints(closest_waypoint_idx)
+            rate.sleep()
+    
+    def get_closest_waypoint_idx(self):
+        x = self.pose.pose.position.x
+        y = self.pose.pose.position.y
+        closest_idx = self.waypoints_tree.query([x, y], 1)[1]
+        
+        # Check if closest is ahead or behind vehicle
+        closest_coord = self.waypoints_2d[closest_idx]
+        # TODO: Can index be negative (closest_idx == 0)?
+        prev_coord = self.waypoints_2d[closest_idx - 1]
+        
+        # Equation for hyperplane through closest_coord
+        cl_vect = np.array(closest_coord)
+        prev_vect = np.array(prev_coord)
+        pos_vect = np.array([x, y])
+        
+        val = np.dot(cl_vect - prev_vect, pos_vect - cl_vect)
+        if val > 0:
+            closest_idx = (closest_idx + 1) % len(self.waypoints_2d)
+        
+        return closest_idx
+    
+    def publish_waypoints(self, closest_idx):
+        #rospy.logwarn("Method: %s", inspect.stack()[0][3])
+        lane = Lane()
+        lane.header = self.base_waypoints.header
+        lane.waypoints = self.base_waypoints.waypoints[closest_idx:closest_idx + LOOKAHEAD_WPS]
+        self.final_waypoints_pub.publish(lane)
+            
 
     def pose_cb(self, msg):
         # TODO: Implement
-        pass
+        #rospy.logwarn("Callback: %s", inspect.stack()[0][3])
+        self.pose = msg
 
     def waypoints_cb(self, waypoints):
         # TODO: Implement
-        pass
+        rospy.logwarn("Callback: %s", inspect.stack()[0][3])
+        rospy.logwarn("Number of waypoints: %d", len(waypoints.waypoints))
+       
+        self.base_waypoints = waypoints
+        # TODO: Not sure why the check is done here, could the callback actually be called more than once?
+        if not self.waypoints_2d:
+            self.waypoints_2d = [[waypoint.pose.pose.position.x, waypoint.pose.pose.position.y] for waypoint in waypoints.waypoints]
+            self.waypoints_tree = KDTree(self.waypoints_2d)
 
     def traffic_cb(self, msg):
         # TODO: Callback for /traffic_waypoint message. Implement
+        rospy.logwarn("Callback: %s", inspect.stack()[0][3])
         pass
 
     def obstacle_cb(self, msg):
         # TODO: Callback for /obstacle_waypoint message. We will implement it later
+        rospy.logwarn("Callback: %s", inspect.stack()[0][3])
         pass
 
     def get_waypoint_velocity(self, waypoint):
