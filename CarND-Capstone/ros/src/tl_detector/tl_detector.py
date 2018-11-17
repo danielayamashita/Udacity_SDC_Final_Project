@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 import rospy
+import numpy as np
 from std_msgs.msg import Int32
 from geometry_msgs.msg import PoseStamped, Pose
 from styx_msgs.msg import TrafficLightArray, TrafficLight
@@ -7,6 +8,7 @@ from styx_msgs.msg import Lane
 from sensor_msgs.msg import Image
 from cv_bridge import CvBridge
 from light_classification.tl_classifier import TLClassifier
+from scipy.spatial import KDTree
 import tf
 import cv2
 import yaml
@@ -48,6 +50,8 @@ class TLDetector(object):
         self.last_state = TrafficLight.UNKNOWN
         self.last_wp = -1
         self.state_count = 0
+	self.waypoints_2d = None
+        self.waypoint_tree = None
 
         rospy.spin()
 
@@ -56,6 +60,9 @@ class TLDetector(object):
 
     def waypoints_cb(self, waypoints):
         self.waypoints = waypoints
+	if not self.waypoints_2d:
+		self.waypoints_2d = [[waypoint.pose.pose.position.x, waypoint.pose.pose.position.y] for waypoint in waypoints.waypoints]
+		self.waypoint_tree = KDTree(self.waypoints_2d)
 
     def traffic_cb(self, msg):
         self.lights = msg.lights
@@ -68,6 +75,7 @@ class TLDetector(object):
             msg (Image): image from car-mounted camera
 
         """
+	#rospy.logwarn('image_cb')
         self.has_image = True
         self.camera_image = msg
         light_wp, state = self.process_traffic_lights()
@@ -90,7 +98,7 @@ class TLDetector(object):
             self.upcoming_red_light_pub.publish(Int32(self.last_wp))
         self.state_count += 1
 
-    def get_closest_waypoint(self, pose):
+    def get_closest_waypoint(self, x,y):
         """Identifies the closest path waypoint to the given position
             https://en.wikipedia.org/wiki/Closest_pair_of_points_problem
         Args:
@@ -102,6 +110,17 @@ class TLDetector(object):
         """
         #TODO implement
 	closest_idx = self.waypoint_tree.query([x,y],1)[1]
+	closest_coord = self.waypoints_2d[closest_idx]
+        prev_coord = self.waypoints_2d[closest_idx -1]
+
+        cl_vect = np.array(closest_coord)
+        prev_vect = np.array(prev_coord)
+        pos_vect = np.array([x,y])
+
+        val = np.dot(cl_vect-prev_vect,pos_vect-cl_vect)
+	
+        if val > 0:
+            closest_idx = (closest_idx + 1) % len(self.waypoints_2d)
         return closest_idx
 
     def get_light_state(self, light):
@@ -158,8 +177,9 @@ class TLDetector(object):
 				closest_light = light
 				line_wp_idx = temp_wp_idx
 		if closest_light:
+			#rospy.logwarn('closest_light: %s',closest_light)
 			state = self.get_light_state(closest_light)
-			return light_wp_idx, state
+			return line_wp_idx, state
 
         return -1, TrafficLight.UNKNOWN
 
