@@ -1,6 +1,74 @@
-This is the project repo for the final project of the Udacity Self-Driving Car Nanodegree: Programming a Real Self-Driving Car. For more information about the project, see the project introduction [here](https://classroom.udacity.com/nanodegrees/nd013/parts/6047fe34-d93c-4f50-8336-b70ef10cb4b2/modules/e1a23b06-329a-4684-a717-ad476f0d8dff/lessons/462c933d-9f24-42d3-8bdc-a08a5fc866e4/concepts/5ab4b122-83e6-436d-850f-9f4d26627fd9).
+# Capstone project: Programming a real self-driving car
+[![Udacity - Self-Driving Car NanoDegree](https://s3.amazonaws.com/udacity-sdc/github/shield-carnd.svg)](http://www.udacity.com/drive)
 
-Please use **one** of the two installation options, either native **or** docker installation.
+[//]: # (Image References)
+[overview]: /imgs/overview_graph.png "Overview" 
+[tl_node]: /imgs/tl_node.png "Traffic Light" 
+[waypoint_node]: /imgs/waypoint_node.png "Waypoint updater" 
+[dbw_node]: /imgs/dbw_node.png "DBW" 
+
+In this final project of the udacity self-driving car nanodegree, the full control software is written for a simplified driving situation. The code is tested on a simulator and on the Udacity self-driving car Carla at a test site in Palo Alto, California.
+The car can maneuver on a highway or parking lot with traffic lights. The simplified situation does not include other vehicles, traffic signs or unexpected obstacles. How to handle such situations can be found in other projects.
+
+## The team
+
+| Name | GitHub profile |
+|------|----------------|
+| Daniela | [danielayamashita](https://github.com/danielayamashita)|
+| Vinod | [imvinod](https://github.com/imvinod) |
+| Wen | [WenHsu1203](https://github.com/WenHsu1203) |
+| Markus | [Macki767](https://github.com/Macki767) |
+| Solvejg | [heliotropium72](https://github.com/heliotropium72) |
+
+## System architecture
+
+Carla is controlled using the robot operating system ([ROS](http://www.ros.org/)).
+
+![alt text][overview]
+
+
+### Waypoint node
+
+![alt text][waypoint_node]
+
+
+The waypoint updater extracts the next x waypoints from the `/base_waypoints` along the road which the car should follow. The creation is based on the current position, the target velocity and traffic lights.
+
+More details...
+
+### Drive-by-wire node
+
+![alt text][dbw_node]
+
+The throttle, brake and steering of Carla have electric control. The values which are send to Carla are created with a PID controller. They are published at 50Hz. This frequency is important because at lower frequency Carla might detect a fault and the system might shut down due to security settings.
+
+In both the simulator and Carla the driver has to be able to take over manual control at any moment. In the code this is considered by the `dbw_enabled` flaged. The dbw control is only active when the flag is True.
+
+
+### Traffic light detection and classification node
+
+![alt text][tl_node]
+
+
+## Simulator and test site
+
+two testing environments in the simulator
+test site in Paolo Alto, California
+
+## Carla
+
+Carla is an autonomous Lincoln MKZ with the following hardware specifications:
+- 31.4 GiB Memory
+- Intel Core i7-6700K CPU @ 4 GHz x 8
+- TITAN X Graphics
+- 64-bit OS
+
+
+## Challenges and future improvements
+
+----
+
+## Information from Udacity
 
 ### Native Installation
 
