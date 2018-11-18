@@ -30,7 +30,7 @@ MAX_DECEL = 0.5
 
 class WaypointUpdater(object):
     def __init__(self):
-	rospy.logwarn('waypoint_updater')
+        rospy.logwarn('waypoint_updater')
         rospy.init_node('waypoint_updater')
 
         
@@ -41,22 +41,22 @@ class WaypointUpdater(object):
 
         # TODO: Add other member variables you need below
         self.pose = None
-	#self.base_lane = None
-	self.stopline_wp_idx = -1        
-	self.base_waypoints = None
+        #self.base_lane = None
+        self.stopline_wp_idx = -1        
+        self.base_waypoints = None
         self.waypoints_2d = None
         self.waypoint_tree = None
-	
-	rospy.Subscriber('/current_pose', PoseStamped, self.pose_cb)
-        rospy.Subscriber('/base_waypoints', Lane, self.waypoints_cb)
-	rospy.Subscriber('/traffic_waypoint',Int32, self.traffic_cb)
 
-	self.lastX = None;
-	self.lastY = None;
+        rospy.Subscriber('/current_pose', PoseStamped, self.pose_cb)
+        rospy.Subscriber('/base_waypoints', Lane, self.waypoints_cb)
+        rospy.Subscriber('/traffic_waypoint',Int32, self.traffic_cb)
+
+        self.lastX = None;
+        self.lastY = None;
         self.loop()
 
     def loop(self):
-        rate = rospy.Rate(20)
+        rate = rospy.Rate(10)
         while not rospy.is_shutdown():
             if self.pose and self.base_waypoints:
                 #Get closest waypoint
@@ -65,10 +65,10 @@ class WaypointUpdater(object):
             rate.sleep()
 
     def get_closest_waypoint_idx(self):
-	
+
         x = self.pose.pose.position.x
         y = self.pose.pose.position.y
-	
+
         closest_idx = self.waypoint_tree.query([x,y],1)[1]
         closest_coord = self.waypoints_2d[closest_idx]
         prev_coord = self.waypoints_2d[closest_idx -1]
@@ -78,58 +78,58 @@ class WaypointUpdater(object):
         pos_vect = np.array([x,y])
 
         val = np.dot(cl_vect-prev_vect,pos_vect-cl_vect)
-	
+
         if val > 0:
             closest_idx = (closest_idx + 1) % len(self.waypoints_2d)
 
-	#if self.lastX:
-	#	if self.lastX != x or self.lastY != y:
-	#		rospy.logwarn('X :%f',x)
-	#		rospy.logwarn('Y :%f',y)
-	#		rospy.logwarn('closest_idx:%f',closest_idx)
-	#		rospy.logwarn('-----------------------')
-	#else:
-	#	rospy.logwarn('X :%f',x)
-	#	rospy.logwarn('Y :%f',y)
-	#	rospy.logwarn('closest_idx:%f',closest_idx)
-	#	rospy.logwarn('-----------------------')
-	#self.lastX = x;
-	#self.lastY = y;
+        #if self.lastX:
+        #	if self.lastX != x or self.lastY != y:
+        #		rospy.logwarn('X :%f',x)
+        #		rospy.logwarn('Y :%f',y)
+        #		rospy.logwarn('closest_idx:%f',closest_idx)
+        #		rospy.logwarn('-----------------------')
+        #else:
+        #	rospy.logwarn('X :%f',x)
+        #	rospy.logwarn('Y :%f',y)
+        #	rospy.logwarn('closest_idx:%f',closest_idx)
+        #	rospy.logwarn('-----------------------')
+        #self.lastX = x;
+        #self.lastY = y;
         return closest_idx
 
     def publish_waypoints(self):
-	final_lane = self.generate_lane()
-	self.final_waypoints_pub.publish(final_lane)
+        final_lane = self.generate_lane()
+        self.final_waypoints_pub.publish(final_lane)
 
     def generate_lane(self):
-	lane = Lane()
+        lane = Lane()
 
-	closest_idx = self.get_closest_waypoint_idx()
-	farthest_idx = closest_idx + LOOKAHEAD_WPS
-	base_waypoints = self.base_waypoints.waypoints[closest_idx:farthest_idx]
+        closest_idx = self.get_closest_waypoint_idx()
+        farthest_idx = closest_idx + LOOKAHEAD_WPS
+        base_waypoints = self.base_waypoints.waypoints[closest_idx:farthest_idx]
 
-	if self.stopline_wp_idx == -1 or (self.stopline_wp_idx >= farthest_idx):
-		lane.waypoints = base_waypoints
-	else:
-		lane.waypoints = self.decelarate_waypoints(base_waypoints, closest_idx)
+        if self.stopline_wp_idx == -1 or (self.stopline_wp_idx >= farthest_idx):
+            lane.waypoints = base_waypoints
+        else:
+            lane.waypoints = self.decelarate_waypoints(base_waypoints, closest_idx)
 
-	return lane
+        return lane
 
     def decelarate_waypoints(self, waypoints, closest_idx):
-	temp = []
-	for i, wp in enumerate(waypoints):
-		p = Waypoint()
-		p.pose = wp.pose
-		stop_idx = max(self.stopline_wp_idx - closest_idx - 2,0)
-		dist = self.distance(waypoints,i,stop_idx)
-		vel = math.sqrt(2 *MAX_DECEL * dist)
-		if vel < 1:
-			vel = 0
-		p.twist.twist.linear.x = min(vel, wp.twist.twist.linear.x)
+        temp = []
+        for i, wp in enumerate(waypoints):
+            p = Waypoint()
+            p.pose = wp.pose
+            stop_idx = max(self.stopline_wp_idx - closest_idx - 5,0)
+            dist = self.distance(waypoints,i,stop_idx)
+            vel = math.sqrt(2 *MAX_DECEL * dist)
+            if vel < 1:
+                vel = 0
+            p.twist.twist.linear.x = min(vel, wp.twist.twist.linear.x)
 
-		temp.append(p)
+            temp.append(p)
 
-	return temp
+        return temp
 
     def pose_cb(self, msg):
         self.pose = msg
@@ -145,8 +145,8 @@ class WaypointUpdater(object):
 
     def traffic_cb(self, msg):
         # TODO: Callback for /traffic_waypoint message. Implement
-	self.stopline_wp_idx = msg.data
-        pass
+        self.stopline_wp_idx = msg.data
+ 
 
     def obstacle_cb(self, msg):
         # TODO: Callback for /obstacle_waypoint message. We will implement it later
