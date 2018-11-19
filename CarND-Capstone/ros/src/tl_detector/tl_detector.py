@@ -12,7 +12,14 @@ import cv2
 import yaml
 from scipy.spatial import KDTree
 
+# for debugging
+import inspect
+import time
+
 STATE_COUNT_THRESHOLD = 3
+
+# Only process every 3rd image
+IMAGE_CB_THRESHOLD = 3
 
 class TLDetector(object):
     def __init__(self):
@@ -50,6 +57,8 @@ class TLDetector(object):
         self.last_state = TrafficLight.UNKNOWN
         self.last_wp = -1
         self.state_count = 0
+        
+        self.image_cb_counter = 0
 
         rospy.spin()
 
@@ -65,6 +74,7 @@ class TLDetector(object):
             self.waypoints_tree = KDTree(waypoints_2d)
 
     def traffic_cb(self, msg):
+        #rospy.logwarn("Method: %s", inspect.stack()[0][3])
         self.lights = msg.lights
 
     def image_cb(self, msg):
@@ -75,6 +85,11 @@ class TLDetector(object):
             msg (Image): image from car-mounted camera
 
         """
+        self.image_cb_counter += 1
+        if(self.image_cb_counter < IMAGE_CB_THRESHOLD):
+            return
+        self.image_cb_counter = 0
+        
         self.has_image = True
         self.camera_image = msg
         light_wp, state = self.process_traffic_lights()

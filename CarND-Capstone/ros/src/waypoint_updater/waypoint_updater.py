@@ -141,7 +141,7 @@ class WaypointUpdater(object):
 
     def traffic_cb(self, msg):
         # TODO: Callback for /traffic_waypoint message. Implement
-        rospy.logwarn("Callback: %s", inspect.stack()[0][3])
+        # rospy.logwarn("Callback: %s", inspect.stack()[0][3])
         self.stopline_wp_idx = msg.data
         pass
 
