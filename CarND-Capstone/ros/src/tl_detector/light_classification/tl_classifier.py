@@ -59,7 +59,7 @@ class TLClassifier(object):
     def __init__(self):
         # load the model
         self.model = create_model()
-        self.model.load_weights('saved_models/weights.best.self.defined.hdf5')
+        self.model.load_weights('saved_models/weights.best.self_defined.h5')
 
     def img_to_tensor(self, img):
         # resize the image to (224, 224) to input into the model
