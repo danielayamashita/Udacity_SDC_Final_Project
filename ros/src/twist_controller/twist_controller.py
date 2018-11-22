@@ -13,9 +13,10 @@ class Controller(object):
         """ TODO: The car is wandering and might need to get fixed """
         self.yaw_controller = YawController(wheel_base, steer_ratio, 0.1, max_lat_accel, max_steer_angle)
         
-        kp = 0.3 # empirical values
-        ki = 0.1
-        kd = 0.
+        # Values for PID controller (empirically chosen)
+        kp = 0.2
+        ki = 0.01
+        kd = 3.
         mn = 0.     #Minimum throttle value
         mx = 0.2    #Maximum throttle value
         self.throttle_controller = PID(kp, ki, kd, mn, mx)

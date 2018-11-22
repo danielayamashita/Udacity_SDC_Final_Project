@@ -49,6 +49,19 @@ In both the simulator and Carla the driver has to be able to take over manual co
 
 ![alt text][tl_node]
 
+#### Data sets
+Some data sets were taken from the excellent report from level-5-engineers for this project. [Check it out here](https://github.com/level5-engineers/system-integration/wiki/Traffic-Lights-Detection-and-Classification)
+
+Data from the simulator, provided by our peer level-5-engineers
+[Simulator data](https://www.dropbox.com/s/87xark39qyer8df/TLdataset02.zip)
+The data set contains 4499 images classified in 4 folders (red: 1733, yellow: 253, green: 645, unknown: 1868), every image is of size 224x224
+
+Real road data:
+[Bosch Small Traffic Lights Dataset](https://hci.iwr.uni-heidelberg.de/node/6132)
+
+For myself:
+( Terminal download with wget <path_to_folder.zip> and unzip it with unzip  TLdataset02.zip -d TLdataset02 )
+(For loading the traffic light data I had to install sklearn, the training is independent of carla. So installing this library should not have a consequence)
 
 ## Simulator and test site
 

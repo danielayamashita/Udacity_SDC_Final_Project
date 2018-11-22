@@ -63,7 +63,7 @@ class TLDetector(object):
                 closest_waypoint_idx = self.get_closest_waypoint_idx()
                 self.publish_waypoints(closest_waypoint_idx)
             rate.sleep()
-    ''''
+    '''
     def pose_cb(self, msg):
         self.pose = msg
 
