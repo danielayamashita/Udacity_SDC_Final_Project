@@ -20,8 +20,6 @@ from keras.utils import np_utils
 from sklearn.datasets import load_files
 from sklearn.metrics import confusion_matrix
 
-from glob import glob
-
 ### TODO: Load and prepare the data
 SIM_FOLDER = '/home/workspace/CarND-Capstone/data/TLdataset02'
 
@@ -65,9 +63,6 @@ train_tensors = paths_to_tensor(X_train)
 valid_tensors = paths_to_tensor(X_valid)
 test_tensors = paths_to_tensor(X_test)
 
-
-#image_size=224 #128, 160, 192, 224 possible
-
 # Retrain a MobileNet
 # MobileNet contains 88 layers
 # It is considerably lighter than other CNN models and performs faster but with less accuracy
@@ -90,7 +85,7 @@ new_model = Model(inputs=mobilenet_model.input, outputs=predictions)
 # Training the model
 new_model.compile(Adam(lr=.0001), loss='categorical_crossentropy', metrics=['accuracy'])
 
-EPOCHS = 10
+EPOCHS = 20
 BATCH_SIZE = 128
 
 new_model.fit(train_tensors, y_train, validation_data=(valid_tensors, y_valid),
@@ -99,23 +94,15 @@ new_model.fit(train_tensors, y_train, validation_data=(valid_tensors, y_valid),
 #                        validation_data=valid_batches, validation_steps=2, epochs=30, verbose=2)
 
 
-new_model.save('my_model.h5')  # creates a HDF5 file 'my_model.h5'
-#del model  # deletes the existing model
+new_model.save('my_model_1.h5')  # creates a HDF5 file 'my_model.h5'
 
-# returns a compiled model
-# identical to the previous one
-#from keras.models import load_model
-#model = load_model('my_model.h5')
-
+print('Test dataset')
+score = new_model.evaluate(test_tensors, y_test, verbose=0)
+print('Loss: {}, Accuracy: {}'.format(score[0], score[1]))
 
 #Check with test data
 predictions = new_model.predict(test_tensors) # predictions returns a list of prob for all labels
-conf_mat = confusion_matrix(y_test, predictions.argmax(axis=1))
+conf_mat = confusion_matrix(y_test.argmax(axis=1), predictions.argmax(axis=1))
+print('Confusion matrix')
+print(y_names)
 print(conf_mat)
-
-
-'''
-### Predict new data
-image = prepare_image('test_file')
-prediction = new_model.predict(image)
-'''

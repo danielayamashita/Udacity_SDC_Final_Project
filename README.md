@@ -63,6 +63,9 @@ For myself:
 ( Terminal download with wget <path_to_folder.zip> and unzip it with unzip  TLdataset02.zip -d TLdataset02 )
 (For loading the traffic light data I had to install sklearn, the training is independent of carla. So installing this library should not have a consequence)
 
+#### Model
+I retrained the last 15 layers of a mobilenet CNN. MobileNet a small models with few weights (ca 17MB of weights). It is supposed to be faster but less accurate in comparison to other CNNs.
+
 ## Simulator and test site
 
 two testing environments in the simulator
