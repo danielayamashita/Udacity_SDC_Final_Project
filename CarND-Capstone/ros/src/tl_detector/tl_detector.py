@@ -14,9 +14,15 @@ import tf
 import cv2
 import yaml
 
-ENABLE_COLLECT_DATA = True
+from keras.models import Sequential
+from keras.layers import Flatten, Dense, Lambda ,Cropping2D,Dropout
+from keras.layers import Convolution2D
+from keras.layers import MaxPooling2D
+from keras.models import load_model
+
+ENABLE_COLLECT_DATA = False
 STATE_COUNT_THRESHOLD = 3
-MAX_NUM_IMG = 5
+MAX_NUM_IMG = 1000
 
 class TLDetector(object):
     def __init__(self):
@@ -50,6 +56,9 @@ class TLDetector(object):
         self.img_collector = IMGCollector()
         self.listener = tf.TransformListener()
 
+        self.model = self.light_classifier.create_model()
+        
+        
         self.state = TrafficLight.UNKNOWN
         self.last_state = TrafficLight.UNKNOWN
         self.last_wp = -1
@@ -62,16 +71,24 @@ class TLDetector(object):
         self.fileNum = 0
         self.has_finished_collect_data = not (ENABLE_COLLECT_DATA)
         self.last_pose = None
+        rospy.logwarn('TLDetector __init__')
         rospy.spin()
+        
 
     def pose_cb(self, msg):
         self.pose = msg
 
     def waypoints_cb(self, waypoints):
-        self.waypoints = waypoints
-        if not self.waypoints_2d:
-            self.waypoints_2d = [[waypoint.pose.pose.position.x, waypoint.pose.pose.position.y] for waypoint in waypoints.waypoints]
-            self.waypoint_tree = KDTree(self.waypoints_2d)
+        try:
+            self.waypoints = waypoints
+            if not self.waypoints_2d:
+                self.waypoints_2d = [[waypoint.pose.pose.position.x, waypoint.pose.pose.position.y] for waypoint in waypoints.waypoints]
+                self.waypoint_tree = KDTree(self.waypoints_2d)
+        except:
+            rospy.logwarn('waypoints_cb exception')
+
+            
+        
 
     def traffic_cb(self, msg):
         self.lights = msg.lights
@@ -84,13 +101,37 @@ class TLDetector(object):
             msg (Image): image from car-mounted camera
 
         """
+        if self.camera_image == None:
+            rospy.logwarn('IMAGE' )
+            model = Sequential()
+            model.add(Lambda(lambda x:x/255-0.5,input_shape=(800,600,3)))
+            #model.add(Conv2D(filters = 16, kernel_size = 2, padding = 'same', activation = 'relu', input_shape = (image.shape)))
+            model.add(Convolution2D(12, (5, 5), strides=(2, 2), activation="relu"))
+            model.add(Convolution2D(24, (5, 5), strides=(2, 2), activation="relu"))
+            model.add(Convolution2D(36, (5, 5), strides=(2, 2), activation="relu"))
+            model.add(Convolution2D(64, (2, 2), activation="relu"))
+            model.add(Convolution2D(64, (2, 2), activation="relu"))
+            model.add(Convolution2D(64, (2, 2), activation="relu"))
+            model.add(MaxPooling2D((2,2)))
+            model.add(Dropout(0.5))
+            model.add(Flatten())
+            model.add(Dense(100))
+            model.add(Dense(50))
+            model.add(Dense(10))
+            model.add(Dense(3))
+            #model.load_weights('model_weights.h5')
+            model.load_weights('light_classification/model_weights2.h5')
+            self.model = model
         #rospy.logwarn('image_cb')
         self.has_image = True
         self.camera_image = msg
         #rospy.logwarn('self.camera_image height: %s', msg.height)
         #rospy.logwarn('self.camera_image height: %s', msg.width)
+        
+        
+        
         light_wp, state = self.process_traffic_lights()
-
+        
         '''
         Publish upcoming red lights at camera frequency.
         Each predicted state has to occur `STATE_COUNT_THRESHOLD` number
@@ -102,10 +143,9 @@ class TLDetector(object):
             self.state = state
         elif self.state_count >= STATE_COUNT_THRESHOLD:
             self.last_state = self.state
+            
             light_wp = light_wp if state == TrafficLight.RED else -1
             self.last_wp = light_wp
-            #rospy.logwarn('light_wp: %f',light_wp)	
-            #rospy.logwarn('state: %f',state)	    
             self.upcoming_red_light_pub.publish(Int32(light_wp))
         else:
             self.upcoming_red_light_pub.publish(Int32(self.last_wp))
@@ -175,7 +215,7 @@ class TLDetector(object):
         stop_line_positions = self.config['stop_line_positions']
         if(self.pose):
             car_wp_idx = self.get_closest_waypoint(self.pose.pose.position.x, self.pose.pose.position.y)
-
+            farthest_idx = car_wp_idx + 100
             #car_position = self.get_closest_waypoint(self.pose.pose)
 
             #TODO find the closest visible traffic light (if one exists)
@@ -194,41 +234,40 @@ class TLDetector(object):
                     line_wp_idx = temp_wp_idx
                     
             if closest_light:
-                if not self.has_finished_collect_data:
-                    if not self.last_pose:
-                        rospy.logwarn('self.last_pose: %s',self.last_pose)
-                        self.last_pose = self.pose
-                        
-                    #rospy.logwarn('self.last_pose: %f',self.last_pose.pose.position.x)
-                    #rospy.logwarn('self.last_pose: %f',self.pose.pose.position.x)
-                    
-                    
-                    #rospy.logwarn('x_dist: %f',abs(self.last_pose.pose.position.x - self.pose.pose.position.x))
-                    #rospy.logwarn('y_dist: %f',abs(self.last_pose.pose.position.x - self.pose.pose.position.x))
-                    if(abs(self.last_pose.pose.position.x - self.pose.pose.position.x)> 1. or abs(self.last_pose.pose.position.y - self.pose.pose.position.y) > 1.):
-                        
-                        #rospy.logwarn('collecting data...')
-                        #rospy.logwarn('x_dist: %f',abs(self.last_pose.pose.position.x - self.pose.pose.position.x))
-                        #rospy.logwarn('y_dist: %f',abs(self.last_pose.pose.position.y - self.pose.pose.position.y))
-                        self.last_pose = self.pose
-                        self.count_numImg = self.count_numImg  + 1
-                        rospy.logwarn('NUM: %d/%d',self.count_numImg,MAX_NUM_IMG)
-                        cv_image = self.bridge.imgmsg_to_cv2(self.camera_image, "bgr8")
-                        self.img_collector.img_collector(cv_image,light.state)
+                if not self.has_finished_collect_data :
+                    if not(line_wp_idx == -1 or (line_wp_idx >= farthest_idx)):
+                        #rospy.logwarn('light_wp: %f',light_wp)	
+                        if not self.last_pose:
+                            rospy.logwarn('self.last_pose: %s',self.last_pose)
+                            self.last_pose = self.pose
+                        if(abs(self.last_pose.pose.position.x - self.pose.pose.position.x)> 1. or abs(self.last_pose.pose.position.y - self.pose.pose.position.y) > 1.):
 
-                        if self.count_numImg > MAX_NUM_IMG and self.var:
-                            self.var = False
-                            self.has_finished_collect_data = True
-                            self.fileNum = self.fileNum+1
-                            self.img_collector.save_pickle_file()
-                            self.img_collector.read_pickle_file("training_data")
-                    state =  TrafficLight.GREEN #ignore trafic light and continue running
+                            self.last_pose = self.pose
+                            self.count_numImg = self.count_numImg  + 1
+                            rospy.logwarn('NUM: %d/%d',self.count_numImg,MAX_NUM_IMG)
+                            cv_image = self.bridge.imgmsg_to_cv2(self.camera_image, "bgr8")
+                            self.img_collector.img_collector(cv_image, self.get_light_state(closest_light))
+
+                            if self.count_numImg > MAX_NUM_IMG and self.var:
+                                self.var = False
+                                self.has_finished_collect_data = True
+                                self.fileNum = self.fileNum+1
+                    state = self.get_light_state(closest_light)                     
                 else:
-                    state = self.get_light_state(closest_light)
-                
+                    #state = self.get_light_state(closest_light)
+                    cv_image = self.bridge.imgmsg_to_cv2(self.camera_image, "bgr8")
+                    cv_image = cv2.resize(cv_image,(600,800))
+                    cv_image = np.expand_dims(cv_image, axis=0)
+
+                    state = self.light_classifier.get_classification(cv_image,self.model )
+                    
+                    
+                        
                 return line_wp_idx, state
 
         return -1, TrafficLight.UNKNOWN
+    
+    
 
 if __name__ == '__main__':
     try:

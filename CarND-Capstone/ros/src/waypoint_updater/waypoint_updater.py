@@ -82,19 +82,6 @@ class WaypointUpdater(object):
         if val > 0:
             closest_idx = (closest_idx + 1) % len(self.waypoints_2d)
 
-        #if self.lastX:
-        #	if self.lastX != x or self.lastY != y:
-        #		rospy.logwarn('X :%f',x)
-        #		rospy.logwarn('Y :%f',y)
-        #		rospy.logwarn('closest_idx:%f',closest_idx)
-        #		rospy.logwarn('-----------------------')
-        #else:
-        #	rospy.logwarn('X :%f',x)
-        #	rospy.logwarn('Y :%f',y)
-        #	rospy.logwarn('closest_idx:%f',closest_idx)
-        #	rospy.logwarn('-----------------------')
-        #self.lastX = x;
-        #self.lastY = y;
         return closest_idx
 
     def publish_waypoints(self):
