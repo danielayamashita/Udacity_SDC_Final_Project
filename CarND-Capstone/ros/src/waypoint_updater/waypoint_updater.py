@@ -58,7 +58,7 @@ class WaypointUpdater(object):
     def loop(self):
         rate = rospy.Rate(10)
         while not rospy.is_shutdown():
-            if self.pose and self.base_lane:
+            if self.pose and self.base_lane and self.waypoints_tree:
                 self.publish_waypoints()
             rate.sleep()
     
@@ -143,7 +143,6 @@ class WaypointUpdater(object):
         # TODO: Callback for /traffic_waypoint message. Implement
         # rospy.logwarn("Callback: %s", inspect.stack()[0][3])
         self.stopline_wp_idx = msg.data
-        pass
 
     def obstacle_cb(self, msg):
         # TODO: Callback for /obstacle_waypoint message. We will implement it later

@@ -12,14 +12,19 @@ import cv2
 import yaml
 from scipy.spatial import KDTree
 
-# for debugging
-import inspect
-import time
-
 STATE_COUNT_THRESHOLD = 3
 
-# Only process every 3rd image
-IMAGE_CB_THRESHOLD = 3
+# Only process every Xth image
+IMAGE_CB_THRESHOLD = 4
+
+# for debugging and classification
+import inspect
+import time
+from PIL import Image as PILImage
+import os
+# for collecting classification images, must be a multiple of IMAGE_CB_THRESHOLD 
+IMAGE_COUNTER = 3 * IMAGE_CB_THRESHOLD
+IMAGE_FOLDER = "./images"
 
 class TLDetector(object):
     def __init__(self):
@@ -59,6 +64,10 @@ class TLDetector(object):
         self.state_count = 0
         
         self.image_cb_counter = 0
+        
+        # for image classification collection
+        if not os.path.exists(IMAGE_FOLDER):
+            os.makedirs(IMAGE_FOLDER)
 
         rospy.spin()
 
@@ -86,13 +95,47 @@ class TLDetector(object):
 
         """
         self.image_cb_counter += 1
-        if(self.image_cb_counter < IMAGE_CB_THRESHOLD):
+        if(0 != (self.image_cb_counter % IMAGE_CB_THRESHOLD)):
             return
-        self.image_cb_counter = 0
         
         self.has_image = True
         self.camera_image = msg
         light_wp, state = self.process_traffic_lights()
+
+        '''
+        # For classification images generation
+        if(0 == (self.image_cb_counter % IMAGE_COUNTER)):
+            # Just for debugging purposes show the image details
+            #rospy.logwarn("Image encoding: %s", msg.encoding)
+            #rospy.logwarn("Image HxW: %d x %d", msg.height, msg.width)
+            #rospy.logwarn("Image big endian, step: %d, %d", msg.is_bigendian, msg.step)
+            #rospy.logwarn("Image data len: %d", len(msg.data))
+            # For debugging, show image state
+            #rospy.logwarn("Image = %d, light state = %d", self.image_cb_counter % IMAGE_CB_THRESHOLD, state)
+    
+            car_wp_idx = self.get_closest_waypoint( self.pose.pose.position.x, self.pose.pose.position.y)
+            d = light_wp - car_wp_idx 
+            # A test image shall be saved whenever a traffic light is visible 
+            saveImage = (d >= 0 and d < 150)
+            driveState = state
+            if (not saveImage) and (0 == (self.image_cb_counter % (10*IMAGE_COUNTER))):
+                # No traffic light visible is handled the same way as a green light
+                # we need to store some images showing no traffic light so that the car can also be
+                # trained for these parts of the road
+                # saveImage = True
+                driveState = TrafficLight.GREEN
+            # TODO: A propoer distance needs to be checked
+            if saveImage:
+                # Save image and image classification
+                rospy.logwarn("Saving image and classification. Index distance = %d", d)
+                image = PILImage.frombytes('RGB', (msg.width,msg.height), msg.data)
+                filename = "{]/Image_{}.jpg".format(IMAGE_FOLDER, self.image_cb_counter/IMAGE_CB_THRESHOLD)
+                image.save(filename)
+                with open("./test.txt", "a") as myfile:
+                    myfile.write("{},{}\n".format(filename, driveState))
+            else:
+                rospy.logwarn("No traffic light in visible distance. Index distance = %d", d)
+        '''
 
         '''
         Publish upcoming red lights at camera frequency.
@@ -139,16 +182,24 @@ class TLDetector(object):
         """
         
         # For testing, just return the light state
-        return light.state
+       # return light.state
         
-#        if(not self.has_image):
-#            self.prev_light_loc = None
-#            return False
+        if(not self.has_image):
+            self.prev_light_loc = None
+            return False
 
-#        cv_image = self.bridge.imgmsg_to_cv2(self.camera_image, "bgr8")
+        cv_image = self.bridge.imgmsg_to_cv2(self.camera_image, "bgr8")
 
         #Get classification
-#        return self.light_classifier.get_classification(cv_image)
+        light_state = self.light_classifier.get_classification(cv_image)
+        
+        #Just for testing the classifier in the simulator
+        if light_state != light.state:
+            rospy.logwarn("Light state = %d, predicted = %d", light.state, light_state)
+        else:
+            rospy.loginfo("Light state %d correctly predicted", light.state)
+        
+        return light_state
 
     def process_traffic_lights(self):
         """Finds closest visible traffic light, if one exists, and determines its
@@ -165,11 +216,10 @@ class TLDetector(object):
         # List of positions that correspond to the line to stop in front of for a given intersection
         stop_line_positions = self.config['stop_line_positions']
         if(self.pose):
-            #car_position = self.get_closest_waypoint(self.pose.pose)
             car_wp_idx = self.get_closest_waypoint( self.pose.pose.position.x, self.pose.pose.position.y)
 
             #TODO find the closest visible traffic light (if one exists)
-            diff = len(self.waypoints.waypoints)
+            diff = 200 #len(self.waypoints.waypoints)
             for i, light in enumerate(self.lights):
                 # Gets stop line waypoint index
                 line = stop_line_positions[i]
