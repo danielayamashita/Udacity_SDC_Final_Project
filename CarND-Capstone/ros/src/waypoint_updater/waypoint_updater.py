@@ -27,7 +27,7 @@ as well as to verify your TL classifier.
 TODO (for Yousuf and Aaron): Stopline location for each traffic light.
 '''
 
-LOOKAHEAD_WPS = 50 # Number of waypoints we will publish. You can change this number
+LOOKAHEAD_WPS = 60 # Number of waypoints we will publish. You can change this number
 MAX_DECEL = 0.5
 
 class WaypointUpdater(object):
@@ -84,7 +84,6 @@ class WaypointUpdater(object):
         return closest_idx
     
     def publish_waypoints(self):
-        #rospy.logwarn("Method: %s", inspect.stack()[0][3])
         final_lane = self.generate_lane()
         self.final_waypoints_pub.publish(final_lane)
 
@@ -110,7 +109,7 @@ class WaypointUpdater(object):
             p = Waypoint()
             p.pose = wp.pose
             
-            stop_idx = max(self.stopline_wp_idx - closest_idx - 2, 0) # Two waypoints back from line so front of car stops at line
+            stop_idx = max(self.stopline_wp_idx - closest_idx - 3, 0) # Three waypoints back from line so front of car stops at line
             dist = self.distance(waypoints, i, stop_idx)
             
             # TODO: Check whether that calculation is sufficient. We may want to have some smoother (e.g. linear) decceleration
@@ -124,14 +123,11 @@ class WaypointUpdater(object):
         return temp
 
     def pose_cb(self, msg):
-        # TODO: Implement
-        #rospy.logwarn("Callback: %s", inspect.stack()[0][3])
         self.pose = msg
 
     def waypoints_cb(self, waypoints):
-        # TODO: Implement
-        rospy.logwarn("Callback: %s", inspect.stack()[0][3])
-        rospy.logwarn("Number of waypoints: %d", len(waypoints.waypoints))
+        rospy.loginfo("Callback: %s", inspect.stack()[0][3])
+        rospy.loginfo("Number of waypoints: %d", len(waypoints.waypoints))
        
         self.base_lane = waypoints
         # TODO: Not sure why the check is done here, could the callback actually be called more than once?
@@ -140,13 +136,11 @@ class WaypointUpdater(object):
             self.waypoints_tree = KDTree(self.waypoints_2d)
 
     def traffic_cb(self, msg):
-        # TODO: Callback for /traffic_waypoint message. Implement
-        # rospy.logwarn("Callback: %s", inspect.stack()[0][3])
         self.stopline_wp_idx = msg.data
 
     def obstacle_cb(self, msg):
         # TODO: Callback for /obstacle_waypoint message. We will implement it later
-        rospy.logwarn("Callback: %s", inspect.stack()[0][3])
+        rospy.logwarn("Callback not implemented: %s", inspect.stack()[0][3])
         pass
 
     def get_waypoint_velocity(self, waypoint):

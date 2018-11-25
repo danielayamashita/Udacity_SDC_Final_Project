@@ -17,12 +17,11 @@ n_classes = 3
 
 class TLClassifier(object):
     def __init__(self):
-        #TODO load classifier
         # load keras libraies and load the MobileNet model
         with CustomObjectScope({'relu6': applications.mobilenet.relu6,'DepthwiseConv2D': applications.mobilenet.DepthwiseConv2D}):
             self.model = load_model(model_filepath)
             self.model._make_predict_function() # Otherwise there is a "Tensor %s is not an element of this grap..." when predicting
-        rospy.logwarn("TLClassifier: Model loaded - READY")
+        rospy.loginfo("TLClassifier: Model loaded - READY")
 
     def get_classification(self, image):
         """Determines the color of the traffic light in the image
@@ -34,15 +33,13 @@ class TLClassifier(object):
             int: ID of traffic light color (specified in styx_msgs/TrafficLight)
 
         """
-        #TODO implement light color prediction
-        # transform the input data to tensors
-
         # The model was trained with RGB images.
         # So the image needs to be provided as RGB:
         # self.bridge.imgmsg_to_cv2(self.camera_image, "rgb8")
         # Otherwise a conversion would be necessary
         # image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
 
+        # The model expects RGB images in (224, 224) as input
         image = cv2.resize(image,(224,224))
         
         # to tensors and normalize it
@@ -53,4 +50,3 @@ class TLClassifier(object):
         signal_prediction = np.argmax(self.model.predict(x))
 
         return signal_prediction
-        #return TrafficLight.UNKNOWN
