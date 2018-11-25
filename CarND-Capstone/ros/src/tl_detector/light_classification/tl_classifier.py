@@ -38,8 +38,10 @@ class TLClassifier(object):
         # transform the input data to tensors
 
         # The model was trained with RGB images.
-        # Is image delivered as BGR or RGB?
-        image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+        # So the image needs to be provided as RGB:
+        # self.bridge.imgmsg_to_cv2(self.camera_image, "rgb8")
+        # Otherwise a conversion would be necessary
+        # image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
 
         image = cv2.resize(image,(224,224))
         
