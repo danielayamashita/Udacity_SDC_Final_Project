@@ -69,6 +69,7 @@ class WaypointUpdater(object):
         # Check if closest is ahead or behind vehicle
         closest_coord = self.waypoints_2d[closest_idx]
         # TODO: Can index be negative (closest_idx == 0)?
+        rospy.loginfo("WPU: closest_idx = %d", closest_idx)
         prev_coord = self.waypoints_2d[closest_idx - 1]
         
         # Equation for hyperplane through closest_coord

@@ -12,6 +12,7 @@ import cv2
 import yaml
 from scipy.spatial import KDTree
 import time
+import numpy as np
 
 
 STATE_COUNT_THRESHOLD = 3
@@ -27,33 +28,14 @@ class TLDetector(object):
     def __init__(self):
         rospy.init_node('tl_detector')
 
+        # Member initialization before subscription to any messages to avoid
+        # callback invocation before all members have been initialized
         self.pose           = None
         self.waypoints      = None
         self.camera_image   = None
+        self.waypoints_2d   = None
         self.waypoints_tree = None
         self.lights         = []
-
-        sub1 = rospy.Subscriber('/current_pose', PoseStamped, self.pose_cb)
-        sub2 = rospy.Subscriber('/base_waypoints', Lane, self.waypoints_cb)
-
-        '''
-        /vehicle/traffic_lights provides you with the location of the traffic light in 3D map space and
-        helps you acquire an accurate ground truth data source for the traffic light
-        classifier by sending the current color state of all traffic lights in the
-        simulator. When testing on the vehicle, the color state will not be available. You'll need to
-        rely on the position of the light and the camera image to predict it.
-        '''
-        sub3 = rospy.Subscriber('/vehicle/traffic_lights', TrafficLightArray, self.traffic_cb)
-        sub6 = rospy.Subscriber('/image_color', Image, self.image_cb)
-
-        config_string = rospy.get_param("/traffic_light_config")
-        self.config = yaml.load(config_string)
-
-        self.upcoming_red_light_pub = rospy.Publisher('/traffic_waypoint', Int32, queue_size=1)
-
-        self.bridge = CvBridge()
-        self.light_classifier = TLClassifier()
-        self.listener = tf.TransformListener()
 
         self.state = TrafficLight.UNKNOWN
         self.last_state = TrafficLight.UNKNOWN
@@ -65,6 +47,33 @@ class TLDetector(object):
         # The time in ms of the last invocation of image_cb
         self.last_image_cb_call_ms = int(round(time.time() * 1000))
         
+        self.bridge = CvBridge()
+        self.light_classifier = TLClassifier()
+        
+        sub1 = rospy.Subscriber('/current_pose', PoseStamped, self.pose_cb)
+        sub2 = rospy.Subscriber('/base_waypoints', Lane, self.waypoints_cb)
+
+        '''
+        /vehicle/traffic_lights provides you with the location of the traffic light in 3D map space and
+        helps you acquire an accurate ground truth data source for the traffic light
+        classifier by sending the current color state of all traffic lights in the
+        simulator. When testing on the vehicle, the color state will not be available. You'll need to
+        rely on the position of the light and the camera image to predict it.
+        '''
+        sub3 = rospy.Subscriber('/vehicle/traffic_lights', TrafficLightArray, self.traffic_cb)
+
+        # time consuming method, so called at the end
+        self.light_classifier.load_model()
+
+        sub6 = rospy.Subscriber('/image_color', Image, self.image_cb)
+
+        config_string = rospy.get_param("/traffic_light_config")
+        self.config = yaml.load(config_string)
+
+        self.upcoming_red_light_pub = rospy.Publisher('/traffic_waypoint', Int32, queue_size=1)
+
+        self.listener = tf.TransformListener()
+        
         rospy.spin()
 
     def pose_cb(self, msg):
@@ -73,10 +82,9 @@ class TLDetector(object):
     def waypoints_cb(self, waypoints):
         self.waypoints = waypoints
         
-        # TODO: waypoints_2d necessary?
         if not self.waypoints_tree:
-            waypoints_2d = [[waypoint.pose.pose.position.x, waypoint.pose.pose.position.y] for waypoint in waypoints.waypoints]
-            self.waypoints_tree = KDTree(waypoints_2d)
+            self.waypoints_2d = [[waypoint.pose.pose.position.x, waypoint.pose.pose.position.y] for waypoint in waypoints.waypoints]
+            self.waypoints_tree = KDTree(self.waypoints_2d)
 
     def traffic_cb(self, msg):
         self.lights = msg.lights
@@ -89,6 +97,9 @@ class TLDetector(object):
             msg (Image): image from car-mounted camera
 
         """
+        if not self.pose or not self.waypoints or not self.waypoints_2d or not self.waypoints_tree:
+            rospy.logwarn("image_cb called before data members have been initialized!")
+            return
         
         current_time_ms = int(round(time.time() * 1000))
         
@@ -136,6 +147,19 @@ class TLDetector(object):
 
         """
         closest_idx = self.waypoints_tree.query([x, y], 1)[1]
+        
+        # Check if closest is ahead or behind vehicle
+        closest_coord = self.waypoints_2d[closest_idx]
+        prev_coord = self.waypoints_2d[closest_idx - 1]
+        
+        # Equation for hyperplane through closest_coord
+        cl_vect = np.array(closest_coord)
+        prev_vect = np.array(prev_coord)
+        pos_vect = np.array([x, y])
+        
+        val = np.dot(cl_vect - prev_vect, pos_vect - cl_vect)
+        if val > 0:
+            closest_idx = (closest_idx + 1) % len(self.waypoints_2d)
         
         return closest_idx
 
