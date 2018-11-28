@@ -9,6 +9,7 @@ from sensor_msgs.msg import Image
 from cv_bridge import CvBridge
 from light_classification.tl_classifier import TLClassifier
 from light_classification.img_collector import IMGCollector
+from keras.preprocessing import image as img_preprocessing
 from scipy.spatial import KDTree
 import tf
 import cv2
@@ -23,7 +24,7 @@ from keras.models import load_model
 ENABLE_COLLECT_DATA = False
 STATE_COUNT_THRESHOLD = 3
 MAX_NUM_IMG = 1000
-
+MODEL = 3# 0 = Daniela's Model | 1: Wen's Model | 2: Solverjf's model
 class TLDetector(object):
     def __init__(self):
         rospy.init_node('tl_detector')
@@ -55,8 +56,10 @@ class TLDetector(object):
         self.light_classifier = TLClassifier()
         self.img_collector = IMGCollector()
         self.listener = tf.TransformListener()
-
-        self.model = self.light_classifier.create_model()
+        
+        #self.model = self.light_classifier.set_model()
+        #self.model._make_predict_function()
+        #self.model = self.light_classifier.create_model()
         
         
         self.state = TrafficLight.UNKNOWN
@@ -101,27 +104,21 @@ class TLDetector(object):
             msg (Image): image from car-mounted camera
 
         """
+        
         if self.camera_image == None:
             rospy.logwarn('IMAGE' )
-            model = Sequential()
-            model.add(Lambda(lambda x:x/255-0.5,input_shape=(800,600,3)))
-            #model.add(Conv2D(filters = 16, kernel_size = 2, padding = 'same', activation = 'relu', input_shape = (image.shape)))
-            model.add(Convolution2D(12, (5, 5), strides=(2, 2), activation="relu"))
-            model.add(Convolution2D(24, (5, 5), strides=(2, 2), activation="relu"))
-            model.add(Convolution2D(36, (5, 5), strides=(2, 2), activation="relu"))
-            model.add(Convolution2D(64, (2, 2), activation="relu"))
-            model.add(Convolution2D(64, (2, 2), activation="relu"))
-            model.add(Convolution2D(64, (2, 2), activation="relu"))
-            model.add(MaxPooling2D((2,2)))
-            model.add(Dropout(0.5))
-            model.add(Flatten())
-            model.add(Dense(100))
-            model.add(Dense(50))
-            model.add(Dense(10))
-            model.add(Dense(3))
-            #model.load_weights('model_weights.h5')
-            model.load_weights('light_classification/model_weights2.h5')
-            self.model = model
+            
+            if  MODEL == 0 or MODEL == 1:
+                model = self.light_classifier.create_model(MODEL)
+                model.load_weights('light_classification/model_weights2.h5')
+                self.model = model
+            else:
+                self.model = self.light_classifier.set_model()
+                self.model._make_predict_function()
+                #global graph
+                #graph = tf.get_default_graph()
+                
+            
         #rospy.logwarn('image_cb')
         self.has_image = True
         self.camera_image = msg
@@ -215,7 +212,7 @@ class TLDetector(object):
         stop_line_positions = self.config['stop_line_positions']
         if(self.pose):
             car_wp_idx = self.get_closest_waypoint(self.pose.pose.position.x, self.pose.pose.position.y)
-            farthest_idx = car_wp_idx + 100
+            farthest_idx = car_wp_idx + 200
             #car_position = self.get_closest_waypoint(self.pose.pose)
 
             #TODO find the closest visible traffic light (if one exists)
@@ -255,11 +252,34 @@ class TLDetector(object):
                     state = self.get_light_state(closest_light)                     
                 else:
                     #state = self.get_light_state(closest_light)
-                    cv_image = self.bridge.imgmsg_to_cv2(self.camera_image, "bgr8")
-                    cv_image = cv2.resize(cv_image,(600,800))
-                    cv_image = np.expand_dims(cv_image, axis=0)
-
-                    state = self.light_classifier.get_classification(cv_image,self.model )
+                    
+                    #cv_image = cv2.resize(cv_image,(600,800))
+                    
+                    if MODEL == 0 or MODEL == 1:
+                        cv_image = self.bridge.imgmsg_to_cv2(self.camera_image, "bgr8")
+                        cv_image = np.expand_dims(cv_image, axis=0)
+                        state = self.light_classifier.get_classification(cv_image,self.model )
+                    else:
+                        if not(line_wp_idx == -1 or (line_wp_idx >= farthest_idx)):
+                            if MODEL == 2:
+                                cv_image = self.bridge.imgmsg_to_cv2(self.camera_image, "bgr8")
+                                state =self.light_classifier.get_classification_2(cv_image,self.model)
+                            else:
+                                cv_image = self.bridge.imgmsg_to_cv2(self.camera_image, "rgb8")
+                                cv_image = cv2.resize(cv_image,(224,224))
+                                # to tensors and normalize it
+                                x = img_preprocessing.img_to_array(cv_image)
+                                x = np.expand_dims(x, axis=0).astype('float32')/255
+                
+                                # get index of predicted signal sign for the image
+                                state = np.argmax(self.model.predict(x))
+                                if state != closest_light.state:
+                                    rospy.logwarn("Light state = %d, predicted = %d", closest_light.state, state)
+                                else:
+                                    rospy.loginfo("Light state %d correctly predicted", closest_light.state)
+                        else:
+                            state = TrafficLight.GREEN
+                     
                     
                     
                         

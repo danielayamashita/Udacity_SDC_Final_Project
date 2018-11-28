@@ -2,23 +2,36 @@ import pickle
 import numpy as np
 import rospy
 from PIL import Image
+import csv
+
 import cv2
+
 class IMGCollector(object):
+
     def __init__(self):
-        #Create pickle file
-        self.pickle_file = open("training_data.pickle","wb")
-        #self.pickle_file2 = open("d.pickle","wb")
-        self.images = []
-        self.labels = []
-        self.dict = None
+        ##Create pickle file
+        #self.pickle_file = open("training_data.pickle","wb")
+        ##self.pickle_file2 = open("d.pickle","wb")
+        #self.images = []
+        #self.labels = []
+        #self.dict = None
+        
+        #Create csv file
+        csv_file = open('tl_label3.csv', mode='w');
+        self.csv_writer = csv.writer(csv_file, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
+        self.ImgNum = 300;
         rospy.logwarn('IMGCollector __init__')
 
     
     def img_collector(self,image,label):
-        self.images.append(image)
-        self.labels.append(label)
+        #self.images.append(image)
+        #self.labels.append(label)
         #dict2 = {"image":image,"label": label}
         #pickle.dump(dict2, self.pickle_file)
+        imgName = 'Img_'+str(self.ImgNum) + '.png'
+        self.csv_writer.writerow( (imgName, label)) 
+        self.ImgNum = self.ImgNum + 1
+        cv2.imwrite('Image/'+imgName,image)
         rospy.logwarn('img_collector')
         rospy.logwarn('label: %f',label)
         #rospy.logwarn('image: %f',image)
