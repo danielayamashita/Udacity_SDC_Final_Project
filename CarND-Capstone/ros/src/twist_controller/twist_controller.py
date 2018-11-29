@@ -15,8 +15,8 @@ class Controller(object):
         
         # In my PID project I chose KP=0.2, KI=0.004, KD = 3, the parameters suggested by Sebatian in Term2, video 16/11 (PID implemnentation)
         kp = 0.2    #0.2
-        ki = 3.     #3.
-        kd = 0.004  #0.004
+        ki = 3.  #3.
+        kd = 0.004     #0.004
         mn = 0.     # min throttle value
         mx = 0.2    # max throttle value
         self.throttle_controller = PID(kp, ki, kd, mn, mx)
@@ -60,7 +60,7 @@ class Controller(object):
         if linear_velocity == 0. and current_velocity < 0.1:
             rospy.logerr("TC::control: Setting throttle to 0 and brake to 400")
             throttle = 0.
-            brake = 800 # N*m  - to hold the car in place if we are stopped at a light. Acceleration  ~ 1m/s^2
+            brake = 400 # N*m  - to hold the car in place if we are stopped at a light. Acceleration  ~ 1m/s^2
         elif throttle < 0.1 and vel_error < 0:
             throttle = 0
             decel = max(vel_error, self.decel_limit)

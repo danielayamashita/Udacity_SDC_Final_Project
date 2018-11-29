@@ -111,7 +111,7 @@ class WaypointUpdater(object):
             p = Waypoint()
             p.pose = wp.pose
             
-            stop_idx = max(self.stopline_wp_idx - closest_idx - 3, 0) # Three waypoints back from line so front of car stops at line
+            stop_idx = max(self.stopline_wp_idx - closest_idx - 5, 0) # Three waypoints back from line so front of car stops at line
             dist = self.distance(waypoints, i, stop_idx)
             
             # TODO: Check whether that calculation is sufficient. We may want to have some smoother (e.g. linear) deceleration
