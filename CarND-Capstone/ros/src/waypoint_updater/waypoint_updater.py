@@ -34,24 +34,23 @@ class WaypointUpdater(object):
     def __init__(self):
         rospy.init_node('waypoint_updater')
 
-        rospy.Subscriber('/current_pose', PoseStamped, self.pose_cb)
-        rospy.Subscriber('/base_waypoints', Lane, self.waypoints_cb)
-
-        # TODO: Add a subscriber for /traffic_waypoint and /obstacle_waypoint below
-        rospy.Subscriber('/traffic_waypoint', Int32, self.traffic_cb)
-        
-        # TODO Obstacle detection
-
-
-        self.final_waypoints_pub = rospy.Publisher('final_waypoints', Lane, queue_size=1)
-
-        # TODO: Add other member variables you need below
+        # Member initialization before subscription to avoid uninitialized
+        # members in callbacks
         self.base_lane       = None
         self.pose            = None
         self.waypoints_2d    = None
         self.waypoints_tree  = None
         self.stopline_wp_idx = -1
         
+        # TODO: remove, for debugging purposes only
+        self.last_reported_wp_idx = -100
+        
+        rospy.Subscriber('/current_pose', PoseStamped, self.pose_cb)
+        rospy.Subscriber('/base_waypoints', Lane, self.waypoints_cb)
+        rospy.Subscriber('/traffic_waypoint', Int32, self.traffic_cb)
+        # TODO Obstacle detection
+
+        self.final_waypoints_pub = rospy.Publisher('final_waypoints', Lane, queue_size=1)
         self.loop()
 
     def loop(self):
@@ -68,8 +67,11 @@ class WaypointUpdater(object):
         
         # Check if closest is ahead or behind vehicle
         closest_coord = self.waypoints_2d[closest_idx]
-        # TODO: Can index be negative (closest_idx == 0)?
-        rospy.loginfo("WPU: closest_idx = %d", closest_idx)
+
+        if self.last_reported_wp_idx <= closest_idx - 100:
+            rospy.logwarn("WPU: closest_idx = %d", closest_idx)
+            self.last_reported_wp_idx = closest_idx
+            
         prev_coord = self.waypoints_2d[closest_idx - 1]
         
         # Equation for hyperplane through closest_coord
@@ -97,11 +99,11 @@ class WaypointUpdater(object):
         if self.stopline_wp_idx == -1 or (self.stopline_wp_idx >= farthest_idx):
             lane.waypoints = base_waypoints
         else:
-            lane.waypoints = self.deccelerate_waypoints(base_waypoints, closest_idx)
+            lane.waypoints = self.decelerate_waypoints(base_waypoints, closest_idx)
         
         return lane
     
-    def deccelerate_waypoints(self, waypoints, closest_idx):
+    def decelerate_waypoints(self, waypoints, closest_idx):
         temp = []
         
         for i, wp in enumerate(waypoints):
@@ -112,7 +114,7 @@ class WaypointUpdater(object):
             stop_idx = max(self.stopline_wp_idx - closest_idx - 3, 0) # Three waypoints back from line so front of car stops at line
             dist = self.distance(waypoints, i, stop_idx)
             
-            # TODO: Check whether that calculation is sufficient. We may want to have some smoother (e.g. linear) decceleration
+            # TODO: Check whether that calculation is sufficient. We may want to have some smoother (e.g. linear) deceleration
             vel = math.sqrt(2 * MAX_DECEL * dist)
             if vel < 1.:
                 vel = 0.

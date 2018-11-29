@@ -11,18 +11,9 @@ import tf
 import cv2
 import yaml
 from scipy.spatial import KDTree
-import time
 import numpy as np
 
-
 STATE_COUNT_THRESHOLD = 3
-
-# Only process every Xth image
-#IMAGE_CB_THRESHOLD = 4
-
-# for debugging and classification
-import inspect
-import time
 
 class TLDetector(object):
     def __init__(self):
@@ -42,14 +33,19 @@ class TLDetector(object):
         self.last_wp = -1
         self.state_count = 0
         
-        #self.image_cb_counter = 0
-        
         # The time in ms of the last invocation of image_cb
-        self.last_image_cb_call_ms = int(round(time.time() * 1000))
+        self.last_image_cb_call_ms = int(round(rospy.get_time() * 1000))
         
         self.bridge = CvBridge()
         self.light_classifier = TLClassifier()
         
+        config_string = rospy.get_param("/traffic_light_config")
+        self.config = yaml.load(config_string)
+
+        self.upcoming_red_light_pub = rospy.Publisher('/traffic_waypoint', Int32, queue_size=1)
+
+        self.listener = tf.TransformListener()
+
         sub1 = rospy.Subscriber('/current_pose', PoseStamped, self.pose_cb)
         sub2 = rospy.Subscriber('/base_waypoints', Lane, self.waypoints_cb)
 
@@ -62,18 +58,12 @@ class TLDetector(object):
         '''
         sub3 = rospy.Subscriber('/vehicle/traffic_lights', TrafficLightArray, self.traffic_cb)
 
-        # time consuming method, so called at the end
+        # time consuming method, so called at the end but before subscription to /image_color,
+        # as we anyway won't be able to predict anything useful before the model is actually loaded
         self.light_classifier.load_model()
 
         sub6 = rospy.Subscriber('/image_color', Image, self.image_cb)
 
-        config_string = rospy.get_param("/traffic_light_config")
-        self.config = yaml.load(config_string)
-
-        self.upcoming_red_light_pub = rospy.Publisher('/traffic_waypoint', Int32, queue_size=1)
-
-        self.listener = tf.TransformListener()
-        
         rospy.spin()
 
     def pose_cb(self, msg):
@@ -101,7 +91,7 @@ class TLDetector(object):
             rospy.logwarn("image_cb called before data members have been initialized!")
             return
         
-        current_time_ms = int(round(time.time() * 1000))
+        current_time_ms = int(round(rospy.get_time() * 1000))
         
         # As long as we have no state change, we process new images only once per second
         if (self.state != self.last_state) or (1000 < current_time_ms - self.last_image_cb_call_ms):
@@ -131,7 +121,8 @@ class TLDetector(object):
                 light_wp = light_wp if state == TrafficLight.RED else -1
                 self.last_wp = light_wp
                 self.upcoming_red_light_pub.publish(Int32(light_wp))
-                rospy.logwarn("Last state has changed. State = %d, last state = %d", self.state, self.last_state)
+                if self.state_count == STATE_COUNT_THRESHOLD:
+                    rospy.logwarn("Last state has changed. State = %d, last state = %d", self.state, self.last_state)
             else:
                 self.upcoming_red_light_pub.publish(Int32(self.last_wp))
             self.state_count += 1
@@ -189,6 +180,11 @@ class TLDetector(object):
         else:
             rospy.loginfo("Light state %d correctly predicted", light.state)
         
+        # Light state yellow is treated as red
+        if light_state == TrafficLight.YELLOW:
+            rospy.logwarn("Handling yellow light as if it is red")
+            light_state = TrafficLight.RED
+
         return light_state
 
     def process_traffic_lights(self):

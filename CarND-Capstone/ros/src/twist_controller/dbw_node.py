@@ -6,9 +6,6 @@ from dbw_mkz_msgs.msg import ThrottleCmd, SteeringCmd, BrakeCmd, SteeringReport
 from geometry_msgs.msg import TwistStamped
 import math
 
-# for debugging
-import inspect
-
 from twist_controller import Controller
 
 '''
@@ -49,6 +46,15 @@ class DBWNode(object):
         max_lat_accel = rospy.get_param('~max_lat_accel', 3.)
         max_steer_angle = rospy.get_param('~max_steer_angle', 8.)
 
+        self.dbw_enabled      = None
+        self.current_velocity = None
+        self.current_ang_vel  = None
+        self.linear_vel       = None
+        self.angular_vel      = None
+        self.throttle = 0 # in range 0 to 1
+        self.steering = 0
+        self.brake    = 0
+
         self.steer_pub = rospy.Publisher('/vehicle/steering_cmd',
                                          SteeringCmd, queue_size=1)
         self.throttle_pub = rospy.Publisher('/vehicle/throttle_cmd',
@@ -56,7 +62,6 @@ class DBWNode(object):
         self.brake_pub = rospy.Publisher('/vehicle/brake_cmd',
                                          BrakeCmd, queue_size=1)
 
-        # TODO: Create `Controller` object
         self.controller = Controller( vehicle_mass = vehicle_mass,
                                       fuel_capacity = fuel_capacity,
                                       brake_deadband = brake_deadband,
@@ -68,51 +73,46 @@ class DBWNode(object):
                                       max_lat_accel = max_lat_accel,
                                       max_steer_angle = max_steer_angle )
 
-        # TODO: Subscribe to all the topics you need to
+        # Subscribes to all needed topics
         rospy.Subscriber('/current_velocity', TwistStamped, self.velocity_cb)
         rospy.Subscriber('/twist_cmd', TwistStamped, self.twist_cb)
         rospy.Subscriber('/vehicle/dbw_enabled', Bool, self.dbw_enabled_cb)
-
-        self.dbw_enabled      = None
-        self.current_velocity = None
-        self.current_ang_vel  = None
-        self.linear_vel       = None
-        self.angular_vel      = None
-        self.throttle = 0 # in range 0 to 1
-        self.steering = 0
-        self.brake    = 0
 
         self.loop()
 
     def loop(self):
         rate = rospy.Rate(50) # 50Hz
         while not rospy.is_shutdown():
-            # TODO: Get predicted throttle, brake, and steering using `twist_controller`
-            # You should only publish the control commands if dbw is enabled
+            # Gets predicted throttle, brake, and steering using `twist_controller`
             if not None in (self.current_velocity, self.linear_vel, self.angular_vel):
                 self.throttle, self.brake, self.steering = self.controller.control(self.current_velocity,
                                                                                    self.dbw_enabled,
                                                                                    self.linear_vel,
                                                                                    self.angular_vel)
+
+            # You should only publish the control commands if dbw is enabled
             if self.dbw_enabled:
                 self.publish(self.throttle, self.brake, self.steering)
             
             rate.sleep()
 
     def twist_cb(self, msg):
-        #rospy.logwarn("Callback: %s", inspect.stack()[0][3])
         self.linear_vel = msg.twist.linear.x
         self.angular_vel = msg.twist.angular.z
     
     def velocity_cb(self, msg):
-        #rospy.logwarn("Callback: %s", inspect.stack()[0][3])
         self.current_velocity = msg.twist.linear.x
     
     def dbw_enabled_cb(self, msg):
-        #rospy.logwarn("Callback: %s", inspect.stack()[0][3])
         self.dbw_enabled = msg        
 
     def publish(self, throttle, brake, steer):
+        if abs(steer) > 0.5: # debugging
+            rospy.logwarn("Steering: %.5f", steer)
+            rospy.logwarn("Throttle: %.5f", throttle)
+            rospy.logwarn("Brake: %.5f", brake)
+            rospy.logwarn("Current velocity: %.5f", self.current_velocity)
+
         tcmd = ThrottleCmd()
         tcmd.enable = True
         tcmd.pedal_cmd_type = ThrottleCmd.CMD_PERCENT
