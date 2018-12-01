@@ -58,14 +58,12 @@ class Controller(object):
         
         # TODO: is exact floating point comparison sufficient?
         if linear_velocity == 0. and current_velocity < 0.1:
-            rospy.logerr("TC::control: Setting throttle to 0 and brake to 400")
             throttle = 0.
-            brake = 400 # N*m  - to hold the car in place if we are stopped at a light. Acceleration  ~ 1m/s^2
+            brake = 700 # N*m  - to hold the car in place if we are stopped at a light. Acceleration  ~ 1m/s^2
         elif throttle < 0.1 and vel_error < 0:
             throttle = 0
             decel = max(vel_error, self.decel_limit)
             brake = abs(decel) * self.vehicle_mass * self.wheel_radius # Torque N*m
-            rospy.logwarn("TC::control: Setting throttle to 0 and brake to %.5f", brake)
         
         return throttle, brake, steering
         

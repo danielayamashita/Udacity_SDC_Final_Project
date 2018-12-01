@@ -107,12 +107,6 @@ class DBWNode(object):
         self.dbw_enabled = msg        
 
     def publish(self, throttle, brake, steer):
-        if abs(steer) > 0.5: # debugging
-            rospy.logwarn("Steering: %.5f", steer)
-            rospy.logwarn("Throttle: %.5f", throttle)
-            rospy.logwarn("Brake: %.5f", brake)
-            rospy.logwarn("Current velocity: %.5f", self.current_velocity)
-
         tcmd = ThrottleCmd()
         tcmd.enable = True
         tcmd.pedal_cmd_type = ThrottleCmd.CMD_PERCENT
@@ -129,7 +123,6 @@ class DBWNode(object):
         bcmd.pedal_cmd_type = BrakeCmd.CMD_TORQUE
         bcmd.pedal_cmd = brake
         self.brake_pub.publish(bcmd)
-
 
 if __name__ == '__main__':
     DBWNode()
