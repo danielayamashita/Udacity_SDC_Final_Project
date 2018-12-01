@@ -12,11 +12,10 @@ class Controller(object):
                  wheel_radius, wheel_base, steer_ratio, max_lat_accel, max_steer_angle):
 
         self.yaw_controller = YawController(wheel_base, steer_ratio, 0.1, max_lat_accel, max_steer_angle)
-        
-        # In my PID project I chose KP=0.2, KI=0.004, KD = 3, the parameters suggested by Sebatian in Term2, video 16/11 (PID implemnentation)
-        kp = 0.2    #0.2
-        ki = 3.  #3.
-        kd = 0.004     #0.004
+
+        kp = 0.2
+        ki = 3.
+        kd = 0.004
         mn = 0.     # min throttle value
         mx = 0.2    # max throttle value
         self.throttle_controller = PID(kp, ki, kd, mn, mx)
